@@ -2,11 +2,14 @@ package com.aby.advancedlandmarkbook.view;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteStatement;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -15,6 +18,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.SearchView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultCallback;
@@ -22,6 +26,8 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
@@ -38,6 +44,8 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.material.snackbar.Snackbar;
 
+import java.util.List;
+
 public class SecondFragment extends Fragment implements OnMapReadyCallback, GoogleMap.OnMapLongClickListener, View.OnClickListener
 {
     private GoogleMap mMap;
@@ -53,6 +61,7 @@ public class SecondFragment extends Fragment implements OnMapReadyCallback, Goog
     FragmentManager fragmentManager;
     FragmentTransaction fragmentTransaction;
     SQLiteDatabase database;
+    private SearchView mapSearchView;
 
     @Nullable
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState)
@@ -74,11 +83,10 @@ public class SecondFragment extends Fragment implements OnMapReadyCallback, Goog
 
         registerLauncher();
 
-        sharedPreferences = getContext().getSharedPreferences("com.aby.advancedlandmarkbook", Context.MODE_PRIVATE);
-        info = false;
-
         selectedLatitude = 0.0;
         selectedLongitude = 0.0;
+
+        mapSearchView = binding.searchView;
 
         fragmentManager = getChildFragmentManager();
         fragmentTransaction = fragmentManager.beginTransaction();
@@ -124,22 +132,53 @@ public class SecondFragment extends Fragment implements OnMapReadyCallback, Goog
 
         binding.saveButton.setEnabled(false);
 
+        mapSearchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String s)
+            {
+                String location = mapSearchView.getQuery().toString();
+                List<Address> addressList = null;
+
+                if (location != null)
+                {
+                    Geocoder geocoder = new Geocoder(getContext());
+
+                    try
+                    {
+                        addressList = geocoder.getFromLocationName(location,1);
+                    }
+
+                    catch (Exception exception)
+                    {
+                        exception.printStackTrace();
+                    }
+
+                    Address address = addressList.get(0);
+                    LatLng searchedLatLng = new LatLng(address.getLatitude(), address.getLongitude());
+                    mMap.addMarker(new MarkerOptions().position(searchedLatLng).title(location));
+                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(searchedLatLng, 15));
+                }
+
+                return false;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String s)
+            {
+                return false;
+            }
+        });
+
         locationManager = (LocationManager) getContext().getSystemService(Context.LOCATION_SERVICE);
         locationListener = new LocationListener() {
             @Override
             public void onLocationChanged(@NonNull Location location)
             {
-                info = sharedPreferences.getBoolean("info", false);
-
-                if (!info)
-                {
-                    if (location == null)
+                    if (location != null)
                     {
-                        //LatLng userLocation = new LatLng(location.getLatitude(), location.getLongitude());
-                        //mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userLocation, 15));
-                        sharedPreferences.edit().putBoolean("info", true);
+                        LatLng userLocation = new LatLng(location.getLatitude(), location.getLongitude());
+                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(userLocation, 15));
                     }
-                }
             }
         };
 
@@ -168,10 +207,6 @@ public class SecondFragment extends Fragment implements OnMapReadyCallback, Goog
 
         else
         {
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 10000, 50, locationListener);
-
-            Location lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-
             if (getArguments() != null)
             {
                 goToLocation();
@@ -179,8 +214,19 @@ public class SecondFragment extends Fragment implements OnMapReadyCallback, Goog
 
             else
             {
-                LatLng lastKnownLocationsLatLng = new LatLng(lastKnownLocation.getLatitude(), lastKnownLocation.getLongitude());
-                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(lastKnownLocationsLatLng, 15));
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 10000, 50, locationListener);
+                Location lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+
+                try
+                {
+                    LatLng lastKnownLocationsLatLng = new LatLng(lastKnownLocation.getLatitude(), lastKnownLocation.getLongitude());
+                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(lastKnownLocationsLatLng, 15));
+                }
+
+                catch (NullPointerException exception)
+                {
+                    exception.printStackTrace();
+                }
             }
 
             mMap.setMyLocationEnabled(true);
@@ -247,24 +293,9 @@ public class SecondFragment extends Fragment implements OnMapReadyCallback, Goog
                 statement.bindDouble(3, selectedLongitude);
                 statement.execute();
 
-                Cursor cursor = database.rawQuery("SELECT * FROM locations", null);
-                int IdIndex = cursor.getColumnIndex("id");
-                int nameIndex = cursor.getColumnIndex("name");
-                int latitudeIndex = cursor.getColumnIndex("latitude");
-                int longitudeIndex = cursor.getColumnIndex("longitude");
-
-                while (cursor.moveToNext())
-                {
-                    System.out.println("Id: " + cursor.getInt(IdIndex));
-                    System.out.println("Name: " + cursor.getString(nameIndex));
-                    System.out.println("Latitude: " + cursor.getDouble(latitudeIndex));
-                    System.out.println("Longitude: " + cursor.getDouble(longitudeIndex));
-                }
-
-                cursor.close();
-
                 binding.textView.setVisibility(View.INVISIBLE);
                 binding.saveButton.setVisibility(View.INVISIBLE);
+                binding.searchView.setVisibility(View.INVISIBLE);
 
                 FirstFragment firstFragment = new FirstFragment();
                 fragmentTransaction.replace(R.id.constraint_layout, firstFragment).addToBackStack(null).commit();
@@ -277,6 +308,20 @@ public class SecondFragment extends Fragment implements OnMapReadyCallback, Goog
                 exception.printStackTrace();
             }
         }
+    }
+
+    @Override
+    public void onResume() // hide toolbar on resume
+    {
+        super.onResume();
+        ((AppCompatActivity)getActivity()).getSupportActionBar().hide();
+    }
+
+    @Override
+    public void onStop() // show toolbar on stop
+    {
+        super.onStop();
+        ((AppCompatActivity)getActivity()).getSupportActionBar().show();
     }
 }
 // aktivitedeki fonksiyonu fragmenttan çağırmayı öğrendim
