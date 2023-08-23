@@ -15,9 +15,11 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
+import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.aby.advancedlandmarkbook.R;
@@ -53,6 +55,13 @@ public class FirstFragment extends Fragment implements RecyclerViewInterface
         fragmentTransaction = fragmentManager.beginTransaction();
     }
 
+    @Override
+    public void onResume() // show toolbar on resume
+    {
+        super.onResume();
+        ((AppCompatActivity)getActivity()).getSupportActionBar().show();
+    }
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState)
@@ -61,6 +70,7 @@ public class FirstFragment extends Fragment implements RecyclerViewInterface
 
         locationArrayList = new ArrayList<>();
         binding.recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        binding.recyclerView.addItemDecoration(new DividerItemDecoration(getContext(), DividerItemDecoration.VERTICAL));
         adapter = new RecyclerViewAdapter(locationArrayList, this);
         binding.recyclerView.setAdapter(adapter);
 
