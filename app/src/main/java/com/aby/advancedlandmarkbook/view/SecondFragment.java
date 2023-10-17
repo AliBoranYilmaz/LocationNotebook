@@ -281,31 +281,51 @@ public class SecondFragment extends Fragment implements OnMapReadyCallback, Goog
     public void onClick(View view) {
         if (view.getId() == R.id.saveButton)
         {
-            try
+            if (binding.textView.getText().toString().equals(""))
             {
-                String name = binding.textView.getText().toString();
+                AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+                builder.setTitle("Invalid location name");
+                builder.setMessage("Please enter the name of location");
 
-                String sql = "INSERT INTO locations (name, latitude, longitude) VALUES (?, ?, ?)";
+                builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i)
+                    {
+                        dialogInterface.cancel();
+                    }
+                });
 
-                SQLiteStatement statement = database.compileStatement(sql);
-                statement.bindString(1, name);
-                statement.bindDouble(2, selectedLatitude);
-                statement.bindDouble(3, selectedLongitude);
-                statement.execute();
-
-                binding.textView.setVisibility(View.INVISIBLE);
-                binding.saveButton.setVisibility(View.INVISIBLE);
-                binding.searchView.setVisibility(View.INVISIBLE);
-
-                FirstFragment firstFragment = new FirstFragment();
-                fragmentTransaction.replace(R.id.constraint_layout, firstFragment).addToBackStack(null).commit();
-
-                Toast.makeText(getContext(), "Location saved successfully", Toast.LENGTH_LONG).show();
+                builder.show();
             }
 
-            catch (Exception exception)
+            else
             {
-                exception.printStackTrace();
+                try
+                {
+                    String name = binding.textView.getText().toString();
+
+                    String sql = "INSERT INTO locations (name, latitude, longitude) VALUES (?, ?, ?)";
+
+                    SQLiteStatement statement = database.compileStatement(sql);
+                    statement.bindString(1, name);
+                    statement.bindDouble(2, selectedLatitude);
+                    statement.bindDouble(3, selectedLongitude);
+                    statement.execute();
+
+                    binding.textView.setVisibility(View.INVISIBLE);
+                    binding.saveButton.setVisibility(View.INVISIBLE);
+                    binding.searchView.setVisibility(View.INVISIBLE);
+
+                    FirstFragment firstFragment = new FirstFragment();
+                    fragmentTransaction.replace(R.id.constraint_layout, firstFragment).addToBackStack(null).commit();
+
+                    Toast.makeText(getContext(), "Location saved successfully", Toast.LENGTH_LONG).show();
+                }
+
+                catch (Exception exception)
+                {
+                    exception.printStackTrace();
+                }
             }
         }
     }
